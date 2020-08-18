@@ -23,7 +23,7 @@ cont
 	end
 end
 action:search(
-	visit("http://localhost:3000/search?q=" + encode(value))
+	visit("https://term-search.herokuapp.com/search?q=" + encode(value))
 )
 
 `
