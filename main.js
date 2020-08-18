@@ -26,6 +26,8 @@ app.get("/search", (req, res) => {
 	res.send(page)
 })
 
-app.listen(3000, () => {
-	console.log("Listening at 3000")
+
+const PORT = process.env.PORT || 300;
+app.listen(PORT, () => {
+	console.log(`Listening at ${PORT}`)
 })
