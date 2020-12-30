@@ -1,5 +1,3 @@
-const { term } = require("../../termic");
-
 module.exports = ({ search, results }) => `
 @termtype:m100
 

@@ -1,6 +1,4 @@
-const { term } = require("../../termic");
-
-module.exports = ({ ...props }) => term`
+module.exports = ({ ...props }) => `
 @termtype:m100
 
 cont
