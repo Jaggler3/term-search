@@ -1,0 +1,22 @@
+<term type="m100_xml">
+  <container direction="row" width="100pc" background="black" foreground="white" padding-top="3">
+    <container width="2pc"></container>
+    <container width="18pc">
+      <link width="15" key="1" background="cyan" foreground="black" url="term://settings">Settings</link>
+      <br/>
+      <br/>
+      <link width="15" key="2" background="cyan" foreground="black" url="term://exit">Exit</link>
+    </container>
+    <container width="60pc">
+      <text align="center" font="small" padding-bottom="5">
+        Term
+      </text>
+      <input width="60pc" submit="search"></input>
+    </container>
+    <container width="20pc">
+    </container>
+  </container>
+  <action name="search">
+    visit("http://localhost:3000/search?q=" + encode(value))
+  </action>
+</term>

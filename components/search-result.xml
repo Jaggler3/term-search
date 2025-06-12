@@ -1,0 +1,6 @@
+<term type="m100_xml">
+  <container padding-top="2">
+    <text>${name}</text>
+    <text>${url}</text>
+  </container>
+</term>

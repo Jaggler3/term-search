@@ -1,0 +1,20 @@
+<term type="m100_xml">
+  <import key="search-result" from="../components/search-result.xml" />
+  <container direction="row" width="100pc" background="black" foreground="white" padding-top="3">
+    <container width="20pc" />
+    <container width="60pc">
+      <input width="60pc" initial="${search}" submit="search" autofocus="no" />
+      <container height="3" />
+      <text attrib="awd">Searched for ${search}</text>
+      <text>Took ${time} seconds</text>
+      <container height="3" />
+      <list items="${results}">
+        <search-result name="${@item.name}" url="${@item.url}" />
+      </list>
+    </container>
+    <container width="20pc" />
+  </container>
+  <action name="search">
+    visit("http://localhost:3000/search?q=" + encode(value))
+  </action>
+</term>
