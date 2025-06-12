@@ -8,8 +8,9 @@
       <text attrib="awd">Searched for ${search}</text>
       <text>Took ${time} seconds</text>
       <container height="3" />
-      <list items="${results}">
-        <search-result name="${@item.name}" url="${@item.url}" />
+      <list items="results">
+        <text>${@item.name}</text>
+        <search-result key="(${@index} + 1)" name="${@item.name}" url="${@item.url}" description="${@item.description}" />
       </list>
     </container>
     <container width="20pc" />

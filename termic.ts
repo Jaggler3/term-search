@@ -1,42 +1,12 @@
-import { Parser, Builder } from "xml2js"
+import { Parser } from "xml2js"
 import fs from "fs"
 import path from "path";
+import { buildXMLString } from "./xml";
+import type { ElementTag, ParsedTermFile, TermElement, TermicCache } from "./types";
+import Interpreter from "./lib/interpreter"
 
-
-type ElementTag = "fragment" | "import" | "list" | "term" | "action" | "container" | "input" | "text" | "link" | "br" | "list"
 const ALL_BASIC_ELEMENTS = ["container", "input", "text", "link"]
 const ALL_ELEMENTS = [...ALL_BASIC_ELEMENTS, "import", "list", "term", "action", "br"]
-
-interface ParsedTermFile {
-	term?: {
-		$: any;
-		[key: string]: (XMLElement | string)[];
-	} | XMLElement[]
-}
-
-interface XMLElement {
-	$?: any;
-	[key: string]: (XMLElement | string)[];
-}
-
-interface TermElement {
-	tag: ElementTag;
-	attributes: {
-		[key: string]: string;
-	};
-	__props?: {
-		[key: string]: string;
-	};
-	children: TermElement[];
-	parent?: TermElement;
-	textContent?: string;
-	__expanded?: boolean;
-	__filled?: boolean;
-}
-
-interface TermicCache {
-	[key: string]: TermElement
-}
 
 const Termic = {
 	cache: {} as TermicCache,
@@ -100,12 +70,34 @@ const Termic = {
 			return element
 		}
 
+		// Deep clone function for TermElement
+		function deepCloneTermElement(element: TermElement, newParent?: TermElement): TermElement {
+			const cloned: TermElement = {
+				tag: element.tag,
+				attributes: { ...element.attributes },
+				children: [],
+				parent: newParent,
+				textContent: element.textContent,
+				__expanded: element.__expanded,
+				__filled: element.__filled,
+				__imported: element.__imported,
+				__fromOrigin: element.__fromOrigin,
+				__props: element.__props ? { ...element.__props } : undefined,
+				__listItem: element.__listItem ? { ...element.__listItem } : undefined
+			}
+
+			// Deep clone children
+			cloned.children = element.children.map(child => deepCloneTermElement(child, cloned))
+
+			return cloned
+		}
+
 		// Convert the document to TermElement and flatten all elements
 		const rootElement = convertXMLToTermElement(document, 'term')
 
 		// find all imports and load them into a local cache
 		const getAllImports = (element: TermElement) => {
-			const imports = element.children.filter((child) => child.tag === 'import')
+			const imports = element.children.filter((child) => child.tag === 'import' && !child.__imported)
 			element.children.forEach((item) => {
 				imports.push(...getAllImports(item))
 			})
@@ -116,17 +108,25 @@ const Termic = {
 		const loadImports = async () => {
 			for(const _import of imports) {
 				const { key, from } = _import.attributes
+				const { __fromOrigin } = _import
 				if (!from || typeof from !== "string") continue
 				if (!key || typeof key !== "string") continue
-				const importPath = path.resolve(path.dirname(path.resolve(filePath)), from)
+				const importPath = __fromOrigin ? path.resolve(path.dirname(__fromOrigin), from) : path.resolve(path.dirname(path.resolve(filePath)), from)
 				const importRaw = fs.readFileSync(importPath, 'utf-8')
 				const importDoc: ParsedTermFile = await parser.parseStringPromise(importRaw)
-				Termic.cache[key] = convertXMLToTermElement(importDoc, 'term')
+				const loadedElement = convertXMLToTermElement(importDoc, 'term')
+				let content = loadedElement.children?.[0]?.children || []
+				const innerImports = getAllImports(loadedElement)
+				innerImports.forEach((i) => {
+					i.__fromOrigin = importPath
+				})
+				Termic.cache[key] = content
+				_import.__imported = true
 			}
 		}
 
 		const getAllComponents = (element: TermElement) => {
-			const components = element.children.filter((child) => !ALL_ELEMENTS.includes(child.tag))
+			const components = element.children.filter((child) => !ALL_ELEMENTS.includes(child.tag) && child.tag !== 'fragment')
 			element.children.forEach((item) => {
 				components.push(...getAllComponents(item))
 			})
@@ -135,7 +135,7 @@ const Termic = {
 
 		let components = getAllComponents(rootElement)
 		const prerenderComponents = (element: TermElement) => {
-			if(!ALL_ELEMENTS.includes(element.tag)) { // not a custom component
+			if(!ALL_ELEMENTS.includes(element.tag) && element.tag !== 'fragment') { // not a custom component
 				// custom component -- load from import cache
 				const importCache = Termic.cache[element.tag]
 				if(!importCache) {
@@ -148,18 +148,13 @@ const Termic = {
 				const fragment: TermElement = {
 					tag: 'fragment',
 					attributes: {},
-					children: importCache.children.map((child) => {
-						return {
-							...child,
-							parent: fragment
-						}
-					}),
-					parent: parent,
-					__props: element.attributes
+					children: importCache.map((c) => deepCloneTermElement(c)),
+					__props: { ...element.attributes }
 				}
 				parent.children.splice(index, 1, fragment)
 				fragment.children.forEach((child) => {
-					prerenderComponents(child)
+					child.parent = fragment
+					// prerenderComponents(child) // can't prerender yet, could be bringing new imports
 				})
 			} else {
 				element.children.forEach((child) => {
@@ -168,25 +163,48 @@ const Termic = {
 			}
 		}
 
-		// 1. import and prerender until no more imports or components
+		const evaluateExpression = (expression: string, fragment: TermElement | null) => {
+			// Handle interpolated strings with ${variable} patterns
+			let result = expression
+			if(result.includes('${')) {
+				result = result.replace(/\$\{([^}]+)\}/g, (match, variable) => {
 
-		// 2. loop expand all list until no more lists
+					if(variable.startsWith("@item.") && fragment) {
+						const propName = variable.slice(6)
+						if(fragment.__listItem && propName in fragment.__listItem) {
+							return fragment.__listItem[propName]
+						}
+					}
 
-		// 3. fill all basic elements
-		
+					if(variable.startsWith("@props.") && fragment) {
+						const propName = variable.slice(7)
+						if(fragment.__props && propName in fragment.__props) {
+							return fragment.__props[propName]
+						}
+					}
 
-		const evaluateExpression = (expression: string) => {
-			// if expression is a reference to a variable, return the value of the variable
-			if(expression.startsWith("${")) {
-				const variable = expression.slice(2, -1)
-				if(variable in context) {
-					return context[variable]
-				} else {
-					throw new Error(`Variable ${variable} not found in context`)
-				}
-				return expression
+					if(variable.startsWith("@index") && fragment) {
+						return fragment.__listIndex
+					}
+
+					if(variable in context) {
+						return context[variable]
+					} else {
+						// console.warn(`Variable ${variable} not found in context`)
+						return match // Return the original ${variable} if not found
+					}
+				})
 			}
-			return expression
+
+			if(result.includes('(')) {
+				result = result.replace(/\(([^)]+)\)/g, (_match, inner) => {
+					const interpreter = new Interpreter(inner)
+					interpreter.run()
+					return interpreter.value
+				})
+			}
+
+			return result
 		}
 
 		// render lists
@@ -199,120 +217,127 @@ const Termic = {
 			return lists
 		}
 
+		let lists = getAllLists(rootElement)
 		const expandList = (list: TermElement) => {
-			const children_clone = list.children.map(c => ({ ...c }))
-			// replace list element with the children
 			const parent = list.parent
 			if(!parent) return
-			parent.children = parent.children.filter((child) => child !== list)
-			if(!list.attributes.items) return
-			const data = evaluateExpression(list.attributes.items)
-			if (data && Array.isArray(data)) {
-				parent.children.push(...data.flatMap((dataItem) => {
-					return children_clone
-				}))
+			
+			const listIndex = parent.children.indexOf(list)
+			if(listIndex === -1) return
+			
+			// Get the items to iterate over
+			const data = list.attributes.items ? context[list.attributes.items] : []
+			
+			if (data && Array.isArray(data) && data.length > 0) {
+				// Create expanded children for each data item
+				const expandedChildren = data.flatMap((listItem, i) => {
+					return list.children.map(child => {
+						const clonedChild = deepCloneTermElement(child)
+						clonedChild.__listItem = { ...listItem }
+						clonedChild.__listIndex = i
+						return clonedChild
+					})
+				})
+				
+				// Replace the list element with expanded children
+				parent.children.splice(listIndex, 1, ...expandedChildren)
+				
+				// Set proper parent references
+				expandedChildren.forEach(child => {
+					child.parent = parent
+				})
+			} else {
+				// If no data or empty array, just remove the list element
+				parent.children.splice(listIndex, 1)
 			}
 		}
 
-		const fillBasicElements = (element: TermElement) => {
-			element.children.forEach((child) => {
-				if(ALL_BASIC_ELEMENTS.includes(child.tag) && !child.__filled) {
-					child.attributes = Object.fromEntries(Object.entries(child.attributes).map(([key, value]) => [key, evaluateExpression(value)]))
-					child.__filled = true
-				}
+		// 1. import and prerender until no more imports or components
+		let safetyBreaker = 0
+		while(imports.length > 0 || components.length > 0) {
+			if(safetyBreaker > 100) {
+				console.error("Safety breaker reached")
+				// console.log({ imports, components })
+				throw new Error("Safety breaker reached")
+			}
+			safetyBreaker++
+			await loadImports()
+			prerenderComponents(rootElement)
+			imports = getAllImports(rootElement)
+			components = getAllComponents(rootElement)
+			// console.log({ imports, components })
+		}
+
+		// 2. loop expand all list until no more lists
+		safetyBreaker = 0
+		while(lists.length > 0) {
+			if(safetyBreaker > 100) {
+				console.error("Safety breaker reached")
+				// console.log({ lists })
+				throw new Error("Safety breaker reached")
+			}
+			safetyBreaker++
+			lists = getAllLists(rootElement)
+			lists.forEach(expandList)
+		}
+
+		// 3. fill all basic elements
+		const fillAllElements = (element: TermElement) => {
+			// Fill attributes for basic elements
+			if (ALL_BASIC_ELEMENTS.includes(element.tag)) {
+				element.attributes = Object.fromEntries(
+					Object.entries(element.attributes).map(([key, value]) => [key, evaluateExpression(value, element)])
+				)
+			}
+			
+			// Fill text content for all elements (including text elements)
+			if (element.textContent && element.textContent.includes('${')) {
+				element.textContent = evaluateExpression(element.textContent, element)
+			}
+			
+			// Recursively process children
+			element.children.forEach(child => {
+				fillAllElements(child)
 			})
 		}
+		fillAllElements(rootElement)
 
-		const getBasicElements = (element: TermElement) => {
-			const els = element.children.filter((child) => ALL_BASIC_ELEMENTS.includes(child.tag) && !child.__filled)
-			element.children.forEach((item) => {
-				els.push(...getBasicElements(item))
-			})
-			return els
-		}
-
-		// let basicElements = getBasicElements(rootElement)
-		// console.log("basicElements", basicElements)
-		// const fillBasicElementsCycle = () => {
-		// 	basicElements.forEach(fillBasicElements)
-		// 	basicElements = getBasicElements(rootElement)
-		// }
-
-		// let lists = getAllLists(rootElement)
-		// console.log("lists", lists)
-		// const listCycle = () => {
-		// 	if (lists.length === 0) return
-		// 	lists.forEach(expandList)
-		// 	lists = getAllLists(rootElement)
-		// }
-
-		// while(basicElements.length > 0 || lists.length > 0) {
-		// 	fillBasicElementsCycle()
-		// 	listCycle()
-		// }
-
-
-		// replace all components with a fragment block with copied props and loaded children from the import
-		// const replaceComponents = (element: TermElement) => {
-		// 	element.children.forEach((child) => {
-		// 		if(child.tag === 'import') {
-		// 			child.tag = 'fragment'
-		// 		}
-		// 	})
-		// }
-
-
-		function isValidXMLName(name: string): boolean {
-			const nameRegex = /^[:A-Z_a-z][\w.\-:]*$/u;
-			return nameRegex.test(name);
-		}
-
-		// convert all of it back into a ParsedTermFile
-		function convertTermElementToXMLObj(element: TermElement): any {
-			if (!isValidXMLName(element.tag)) {
-				throw new Error(`Invalid XML tag name: ${element.tag}`);
-			}
-		
-			const obj: any = {};
-			const elementData: any = {};
-		
-			// Add attributes
-			if (Object.keys(element.attributes).length > 0) {
-				for (const [key, val] of Object.entries(element.attributes)) {
-					if (!isValidXMLName(key)) {
-						throw new Error(`Invalid XML attribute name: ${key}`);
-					}
+		// 4. fill all props and list items
+		const fillProps = (element: TermElement, currentFragment: TermElement | null) => {
+			if(element.tag === "fragment") {
+				if(element.__listItem && element.__props) {
+					element.__props = Object.fromEntries(
+						Object.entries(element.__props).map(([key, value]) => [key, evaluateExpression(value, element)])
+					)
 				}
-				elementData.$ = element.attributes;
 			}
-		
-			// Add text content
-			if (element.textContent) {
-				elementData._ = element.textContent;
-			}
-		
-			// Recurse into children
-			for (const child of element.children) {
-				const childObj = convertTermElementToXMLObj(child);
-				if (!elementData[child.tag]) {
-					elementData[child.tag] = [];
-				}
-				elementData[child.tag].push(childObj[child.tag][0]);
-			}
-		
-			obj[element.tag] = [elementData];
-			return obj;
-		}
-		
-		const reversedDocumentObj = convertTermElementToXMLObj(rootElement)
-		// For the root element, we don't want it wrapped in an array
-		const reversedDocument = {
-			term: reversedDocumentObj.term[0]
-		}
 
-		// render xml
-		const serializer = new Builder()
-		const rendered = serializer.buildObject(reversedDocument)
+			if(currentFragment) {
+				element.attributes = Object.fromEntries(
+					Object.entries(element.attributes).map(([key, value]) => [key, evaluateExpression(value, currentFragment)])
+				)
+				if(element.textContent) {
+					element.textContent = evaluateExpression(element.textContent, currentFragment)
+				}
+				if(element.tag === "fragment" && element.__props) {
+					element.__props = Object.fromEntries(
+						Object.entries(element.__props).map(([key, value]) => [key, evaluateExpression(value, currentFragment)])
+					)
+				}
+			}
+
+			if(element.tag === "fragment") {
+				currentFragment = element
+			}
+
+			element.children.forEach((child) => fillProps(child, currentFragment))
+		}
+		fillProps(rootElement, null)
+
+		// Build the XML declaration and root element
+		const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+		const xmlBody = buildXMLString(rootElement)
+		const rendered = xmlDeclaration + xmlBody
 
 		return rendered
 	},

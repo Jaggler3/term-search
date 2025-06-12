@@ -20,10 +20,11 @@ const server = Bun.serve({
 			const searchQuery = url.searchParams.get("q")
 			const context = {
 				search: searchQuery,
+				time: 0.001,
 				results: [
-					{ name: "Page 1", url: "http://page.com", description: "This is a description of page 1" },
-					{ name: "Page 2", url: "http://page.com", description: "This is a description of page 2" },
-					{ name: "Page 3", url: "http://page.com", description: "This is a description of page 3" }
+					{ name: "Page 1", url: "http://google.com", description: "This is a description of page 1" },
+					{ name: "Page 2", url: "http://bing.com", description: "This is a description of page 2" },
+					{ name: "Page 3", url: "http://yahoo.com", description: "This is a description of page 3" }
 				] as SearchResult[]
 			}
 			const page = await Termic.local("./pages/search.xml", context)
