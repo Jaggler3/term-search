@@ -1,19 +1,21 @@
 <term type="m100_xml">
   <import key="search-result" from="../components/search-result.xml" />
-  <container direction="row" width="100pc" background="black" foreground="white" padding-top="3">
+  <text padding-top="3" padding-bottom="1" font="small" align="center">term search</text>
+  <container direction="row" padding-top="1">
     <container width="20pc" />
     <container width="60pc">
-      <input width="60pc" initial="${search}" submit="search" autofocus="no" />
-      <container height="3" />
-      <text attrib="awd">Searched for ${search}</text>
-      <text>Took ${time} seconds</text>
-      <container height="3" />
+      <input icon="\u2315" width="100pc" initial="${search}" submit="search" autofocus="no" />
+      <if condition="(${resultLength} > 0)">
+        <text foreground="green" padding-top="1">${resultLength} results found for '${search}'</text>
+      </if>
+      <text padding-bottom="1">Took ${time} seconds</text>
       <list items="results">
-        <text>${@item.name}</text>
-        <search-result key="(${@index} + 1)" name="${@item.name}" url="${@item.url}" description="${@item.description}" />
+        <search-result key="(${@index} + 1)" title="${@item.title}" url="${@item.url}" description="${@item.description}" />
       </list>
+      <if condition="(${resultLength} == 0)">
+        <text padding-top="1">No results found</text>
+      </if>
     </container>
-    <container width="20pc" />
   </container>
   <action name="search">
     visit("http://localhost:3000/search?q=" + encode(value))

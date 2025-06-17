@@ -6,7 +6,8 @@ import type { ElementTag, ParsedTermFile, TermElement, TermicCache } from "./typ
 import Interpreter from "./lib/interpreter"
 
 const ALL_BASIC_ELEMENTS = ["container", "input", "text", "link"]
-const ALL_ELEMENTS = [...ALL_BASIC_ELEMENTS, "import", "list", "term", "action", "br"]
+// excludes processing elements like fragment. includes templating elements like list and if
+const ALL_ELEMENTS = [...ALL_BASIC_ELEMENTS, "import", "list", "term", "action", "br", "if"]
 
 const Termic = {
 	cache: {} as TermicCache,
@@ -135,7 +136,7 @@ const Termic = {
 
 		let components = getAllComponents(rootElement)
 		const prerenderComponents = (element: TermElement) => {
-			if(!ALL_ELEMENTS.includes(element.tag) && element.tag !== 'fragment') { // not a custom component
+			if(!ALL_ELEMENTS.includes(element.tag) && element.tag !== 'fragment' && element.tag !== 'if') { // not a custom component
 				// custom component -- load from import cache
 				const importCache = Termic.cache[element.tag]
 				if(!importCache) {
@@ -334,10 +335,38 @@ const Termic = {
 		}
 		fillProps(rootElement, null)
 
+		// 5. handle conditionals
+		const handleConditionals = (element: TermElement) => {
+			if(element.tag === "if" && element.attributes.condition) {
+				let condition = evaluateExpression(element.attributes.condition, element)
+				const interpreter = new Interpreter(`Boolean(${condition})`)
+				interpreter.run()
+				condition = interpreter.value
+				
+				if(condition) {
+					element.tag = "fragment"
+					element.attributes = {}
+				} else {
+					const parent = element.parent
+					if(parent) {
+						const index = parent.children.indexOf(element)
+						if(index !== -1) {
+							parent.children.splice(index, 1)
+						}
+					}
+				}
+			}
+
+			element.children.forEach((child) => handleConditionals(child))
+		}
+		handleConditionals(rootElement)
+
 		// Build the XML declaration and root element
 		const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 		const xmlBody = buildXMLString(rootElement)
 		const rendered = xmlDeclaration + xmlBody
+
+		console.log(rendered)
 
 		return rendered
 	},

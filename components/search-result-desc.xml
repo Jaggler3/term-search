@@ -1,3 +1,3 @@
 <term type="m100_xml">
-  <text>${@props.description}...</text>
+  <text>${@props.description}</text>
 </term>

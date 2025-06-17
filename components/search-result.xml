@@ -1,8 +1,10 @@
 <term type="m100_xml">
   <import key="search-result-desc" from="./search-result-desc.xml" />
-  <container padding-top="2">
-    <link key="${@props.key}" url="${@props.url}">${@props.name}</link>
-    <text>${@props.url}</text>
+  <container padding-top="1" padding-bottom="1">
+    <container direction="row">
+      <link foreground="cyan" style="bold" key="${@props.key}" url="${@props.url}">${@props.title}</link>
+      <text padding-left="1" foreground="magenta">[${@props.url}]</text>
+    </container>
     <search-result-desc description="${@props.description}" />
   </container>
 </term>

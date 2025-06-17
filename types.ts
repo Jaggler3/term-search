@@ -1,4 +1,4 @@
-export type ElementTag = "fragment" | "import" | "list" | "term" | "action" | "container" | "input" | "text" | "link" | "br" | "list"
+export type ElementTag = "fragment" | "import" | "list" | "term" | "action" | "container" | "input" | "text" | "link" | "br" | "list" | "if"
 
 export interface ParsedTermFile {
 	term?: {
