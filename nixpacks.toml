@@ -1,5 +1,12 @@
 [phases.setup]
-    nixpcksArchive = 'b5c1a9915e72a2ac1094433e39ce707a755b156b'
+    nixpacksArchive = 'b5c1a9915e72a2ac1094433e39ce707a755b156b'
+    cmds = [
+        "curl -fsSL https://bun.sh/install | bash",
+        "export PATH=\"$HOME/.bun/bin:$PATH\""
+    ]
+
+[phases.install]
+    cmds = ["bun install"]
 
 [start]
     cmd = "bun main.ts"
