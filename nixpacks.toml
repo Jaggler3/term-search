@@ -1,0 +1,5 @@
+[phases.setup]
+    nixpcksArchive = 'b5c1a9915e72a2ac1094433e39ce707a755b156b'
+
+[start]
+    cmd = "bun main.ts"
