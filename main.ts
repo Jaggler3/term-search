@@ -22,19 +22,16 @@ const server = Bun.serve({
 
 			const results = await search(searchQuery)
 
-			// strip protocol from url (http or https)
-			results.forEach(result => {
-				// this regex removes the protocol (http or https) and the trailing slash
-				result.url = result.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
-			})
-
 			const totalTime = Date.now() - time
 
 			const context = {
 				search: searchQuery,
 				time: (totalTime / 1000).toFixed(3),
 				resultLength: results.length,
-				results
+				results: results.map(result => ({
+					...result,
+					prettyUrl: result.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
+				}))
 			}
 			const page = await Termic.local("./pages/search.xml", context)
 			return new Response(page)

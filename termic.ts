@@ -342,17 +342,14 @@ const Termic = {
 				const interpreter = new Interpreter(`Boolean(${condition})`)
 				interpreter.run()
 				condition = interpreter.value
-				
+
 				if(condition) {
 					element.tag = "fragment"
 					element.attributes = {}
 				} else {
 					const parent = element.parent
 					if(parent) {
-						const index = parent.children.indexOf(element)
-						if(index !== -1) {
-							parent.children.splice(index, 1)
-						}
+						parent.children = parent.children.filter((child) => child !== element)
 					}
 				}
 			}

@@ -1,19 +1,24 @@
 <term type="m100_xml">
   <import key="search-result" from="../components/search-result.xml" />
   <text padding-top="3" padding-bottom="1" font="small" align="center">term search</text>
-  <container direction="row" padding-top="1">
+  <container direction="row" padding-top="1" padding-bottom="5">
     <container width="20pc" />
     <container width="60pc">
       <input icon="\u2315" width="100pc" initial="${search}" submit="search" autofocus="no" />
       <if condition="(${resultLength} > 0)">
-        <text foreground="green" padding-top="1">${resultLength} results found for '${search}'</text>
+        <text foreground="green" padding-top="1">${resultLength} results found for '${search}' in ${time} seconds</text>
       </if>
-      <text padding-bottom="1">Took ${time} seconds</text>
       <list items="results">
-        <search-result key="(${@index} + 1)" title="${@item.title}" url="${@item.url}" description="${@item.description}" />
+        <search-result
+          key="(${@index} + 1)"
+          title="${@item.title}"
+          url="${@item.url}"
+          description="${@item.description}"
+          prettyUrl="${@item.prettyUrl}"
+        />
       </list>
       <if condition="(${resultLength} == 0)">
-        <text padding-top="1">No results found</text>
+        <text padding-top="1">No results found for '${search}' in ${time} seconds</text>
       </if>
     </container>
   </container>

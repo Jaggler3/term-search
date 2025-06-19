@@ -19,8 +19,6 @@ SELECT p.id, p.title, p.url, p.description,
      OR p.url ILIKE '%' || ${q} || '%'
   ORDER BY rank DESC
   LIMIT 20
-
 `
-  console.log(results)
-  return results as unknown as SearchResult[]
+  return results.filter((_, index) => index <= 9) as unknown as SearchResult[]
 }
