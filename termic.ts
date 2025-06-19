@@ -363,8 +363,6 @@ const Termic = {
 		const xmlBody = buildXMLString(rootElement)
 		const rendered = xmlDeclaration + xmlBody
 
-		console.log(rendered)
-
 		return rendered
 	},
 	map: (component: any, array: any) => {
