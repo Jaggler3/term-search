@@ -46,15 +46,27 @@ const Pikic = {
 					// Handle arrays of elements
 					for (const childItem of childData) {
 						if (typeof childItem === 'string') {
-							// Handle direct string content
-							const textElement: PikoElement = {
-								tag: 'text',
-								attributes: {},
-								children: [],
-								parent: element,
-								textContent: childItem
+							// Handle direct string content - but check if it's an empty string for self-closing tags
+							if (childItem === '' && (childTag === 'br' || childTag === 'input')) {
+								// This is a self-closing tag like <br/> or <input/>
+								const selfClosingElement: PikoElement = {
+									tag: childTag as ElementTag,
+									attributes: {},
+									children: [],
+									parent: element
+								}
+								element.children.push(selfClosingElement)
+							} else if (childItem.trim() !== '') {
+								// Only create text elements for non-empty strings
+								const textElement: PikoElement = {
+									tag: 'text',
+									attributes: {},
+									children: [],
+									parent: element,
+									textContent: childItem
+								}
+								element.children.push(textElement)
 							}
-							element.children.push(textElement)
 						} else {
 							// Handle nested XML elements
 							const childElement = convertXMLToPikoElement(childItem, childTag as ElementTag, element)
