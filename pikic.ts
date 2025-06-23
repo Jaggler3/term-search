@@ -16,7 +16,11 @@ const Pikic = {
 		const raw = fs.readFileSync(filePath, 'utf-8')
 
 		// parse xml
-		const parser = new Parser()
+		const parser = new Parser({
+			explicitChildren: true,
+			preserveChildrenOrder: true,
+			childkey: 'children'
+		})
 		const file: ParsedPikoFile = await parser.parseStringPromise(raw)
 
 		// traverse through the document
@@ -38,45 +42,56 @@ const Pikic = {
 				element.textContent = xmlData._
 			}
 
-			// Process all child elements
-			for (const [childTag, childData] of Object.entries(xmlData)) {
-				if (childTag === '$' || childTag === '_') continue // Skip attributes and text content
-
-				if (Array.isArray(childData)) {
-					// Handle arrays of elements
-					for (const childItem of childData) {
-						if (typeof childItem === 'string') {
-							// Handle direct string content - but check if it's an empty string for self-closing tags
-							if (childItem === '' && (childTag === 'br' || childTag === 'input')) {
-								// This is a self-closing tag like <br/> or <input/>
-								const selfClosingElement: PikoElement = {
-									tag: childTag as ElementTag,
-									attributes: {},
-									children: [],
-									parent: element
-								}
-								element.children.push(selfClosingElement)
-							} else if (childItem.trim() !== '') {
-								// Only create text elements for non-empty strings
-								const textElement: PikoElement = {
-									tag: 'text',
-									attributes: {},
-									children: [],
-									parent: element,
-									textContent: childItem
-								}
-								element.children.push(textElement)
-							}
-						} else {
-							// Handle nested XML elements
-							const childElement = convertXMLToPikoElement(childItem, childTag as ElementTag, element)
-							element.children.push(childElement)
-						}
+			// Process children in order (if using explicitChildren)
+			if (xmlData.children && Array.isArray(xmlData.children)) {
+				for (const child of xmlData.children) {
+					if (child['#name'] && child['#name'] !== '$' && child['#name'] !== '_') {
+						const childTag = child['#name'] as ElementTag
+						const childElement = convertXMLToPikoElement(child, childTag, element)
+						element.children.push(childElement)
 					}
-				} else if (typeof childData === 'object') {
-					// Handle single nested element
-					const childElement = convertXMLToPikoElement(childData, childTag as ElementTag, element)
-					element.children.push(childElement)
+				}
+			} else {
+				// Fallback to old processing for backward compatibility
+				for (const [childTag, childData] of Object.entries(xmlData)) {
+					if (childTag === '$' || childTag === '_') continue // Skip attributes and text content
+
+					if (Array.isArray(childData)) {
+						// Handle arrays of elements
+						for (const childItem of childData) {
+							if (typeof childItem === 'string') {
+								// Handle direct string content - but check if it's an empty string for self-closing tags
+								if (childItem === '' && (childTag === 'br' || childTag === 'input')) {
+									// This is a self-closing tag like <br/> or <input/>
+									const selfClosingElement: PikoElement = {
+										tag: childTag as ElementTag,
+										attributes: {},
+										children: [],
+										parent: element
+									}
+									element.children.push(selfClosingElement)
+								} else if (childItem.trim() !== '') {
+									// Only create text elements for non-empty strings
+									const textElement: PikoElement = {
+										tag: 'text',
+										attributes: {},
+										children: [],
+										parent: element,
+										textContent: childItem
+									}
+									element.children.push(textElement)
+								}
+							} else {
+								// Handle nested XML elements
+								const childElement = convertXMLToPikoElement(childItem, childTag as ElementTag, element)
+								element.children.push(childElement)
+							}
+						}
+					} else if (typeof childData === 'object') {
+						// Handle single nested element
+						const childElement = convertXMLToPikoElement(childData, childTag as ElementTag, element)
+						element.children.push(childElement)
+					}
 				}
 			}
 
