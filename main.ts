@@ -1,4 +1,4 @@
-import Termic from "./termic"
+import Pikic from "./pikic"
 import { search } from "./core/search"
 
 const server = Bun.serve({
@@ -9,7 +9,7 @@ const server = Bun.serve({
 		const time = Date.now()
 		
 		if (url.pathname === "/") {
-			const page = await Termic.local("./pages/index.xml", {})
+			const page = await Pikic.local("./pages/index.xml", {})
 			return new Response(page)
 		}
 		
@@ -17,7 +17,7 @@ const server = Bun.serve({
 			const searchQuery = url.searchParams.get("q")
 
 			if (!searchQuery) {
-				return new Response(await Termic.local("./pages/index.xml", {}), { status: 400 })
+				return new Response(await Pikic.local("./pages/index.xml", {}), { status: 400 })
 			}
 
 			const results = await search(searchQuery)
@@ -34,7 +34,7 @@ const server = Bun.serve({
 					prettyUrl: result.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
 				}))
 			}
-			const page = await Termic.local("./pages/search.xml", context)
+			const page = await Pikic.local("./pages/search.xml", context)
 			return new Response(page)
 		}
 		

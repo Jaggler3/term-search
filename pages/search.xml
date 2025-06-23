@@ -1,6 +1,6 @@
-<term type="m100_xml">
+<piko type="m100_xml">
   <import key="search-result" from="../components/search-result.xml" />
-  <text padding-top="3" padding-bottom="1" font="small" align="center">term search</text>
+  <text padding-top="3" padding-bottom="1" font="small" align="center">piko search</text>
   <container direction="row" padding-top="1" padding-bottom="5">
     <container width="20pc" />
     <container width="60pc">
@@ -25,4 +25,4 @@
   <action name="search">
     visit("/search?q=" + encode(value))
   </action>
-</term>
+</piko>

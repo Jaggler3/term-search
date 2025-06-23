@@ -1,7 +1,7 @@
-import type { TermElement } from "./types";
+import type { PikoElement } from "./types";
 
 // Directly build XML string while preserving order
-export function buildXMLString(element: TermElement, indent: string = ""): string {
+export function buildXMLString(element: PikoElement, indent: string = ""): string {
 	const { tag, attributes, textContent, children } = element
 	
 	// Skip fragments - just process their children

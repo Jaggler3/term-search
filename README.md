@@ -1,4 +1,4 @@
-# term-search
+# piko-search
 
 To install dependencies:
 

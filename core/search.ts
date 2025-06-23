@@ -18,7 +18,7 @@ function buildTsQuery(q: string): string {
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .map(term => `${term}:*`)
+    .map(piko => `${piko}:*`)
     .join(' | ');
 }
 

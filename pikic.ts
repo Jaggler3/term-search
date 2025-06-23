@@ -2,31 +2,31 @@ import { Parser } from "xml2js"
 import fs from "fs"
 import path from "path";
 import { buildXMLString } from "./xml";
-import type { ElementTag, ParsedTermFile, TermElement, TermicCache } from "./types";
+import type { ElementTag, ParsedPikoFile, PikoElement, PikicCache } from "./types";
 import Interpreter from "./lib/interpreter"
 
 const ALL_BASIC_ELEMENTS = ["container", "input", "text", "link"]
 // excludes processing elements like fragment. includes templating elements like list and if
-const ALL_ELEMENTS = [...ALL_BASIC_ELEMENTS, "import", "list", "term", "action", "br", "if"]
+const ALL_ELEMENTS = [...ALL_BASIC_ELEMENTS, "import", "list", "piko", "action", "br", "if"]
 
-const Termic = {
-	cache: {} as TermicCache,
+const Pikic = {
+	cache: {} as PikicCache,
 	local: async (filePath: string, context: any) => {
 		// we need to add support for imports, list, templating with imported components
 		const raw = fs.readFileSync(filePath, 'utf-8')
 
 		// parse xml
 		const parser = new Parser()
-		const file: ParsedTermFile = await parser.parseStringPromise(raw)
+		const file: ParsedPikoFile = await parser.parseStringPromise(raw)
 
 		// traverse through the document
-		const document = file.term
-		if(Array.isArray(document)) return "Error: Cannot have multiple <term> tags in root of file"
-		if(!document) return "Error: No <term> found in root of file"
+		const document = file.piko
+		if(Array.isArray(document)) return "Error: Cannot have multiple <piko> tags in root of file"
+		if(!document) return "Error: No <piko> found in root of file"
 
-		// Helper function to recursively convert XML elements to TermElement
-		function convertXMLToTermElement(xmlData: any, tag: ElementTag, parent?: TermElement): TermElement {
-			const element: TermElement = {
+		// Helper function to recursively convert XML elements to PikoElement
+		function convertXMLToPikoElement(xmlData: any, tag: ElementTag, parent?: PikoElement): PikoElement {
+			const element: PikoElement = {
 				tag,
 				attributes: xmlData.$ || {},
 				children: [],
@@ -47,7 +47,7 @@ const Termic = {
 					for (const childItem of childData) {
 						if (typeof childItem === 'string') {
 							// Handle direct string content
-							const textElement: TermElement = {
+							const textElement: PikoElement = {
 								tag: 'text',
 								attributes: {},
 								children: [],
@@ -57,13 +57,13 @@ const Termic = {
 							element.children.push(textElement)
 						} else {
 							// Handle nested XML elements
-							const childElement = convertXMLToTermElement(childItem, childTag as ElementTag, element)
+							const childElement = convertXMLToPikoElement(childItem, childTag as ElementTag, element)
 							element.children.push(childElement)
 						}
 					}
 				} else if (typeof childData === 'object') {
 					// Handle single nested element
-					const childElement = convertXMLToTermElement(childData, childTag as ElementTag, element)
+					const childElement = convertXMLToPikoElement(childData, childTag as ElementTag, element)
 					element.children.push(childElement)
 				}
 			}
@@ -71,9 +71,9 @@ const Termic = {
 			return element
 		}
 
-		// Deep clone function for TermElement
-		function deepCloneTermElement(element: TermElement, newParent?: TermElement): TermElement {
-			const cloned: TermElement = {
+		// Deep clone function for PikoElement
+		function deepClonePikoElement(element: PikoElement, newParent?: PikoElement): PikoElement {
+			const cloned: PikoElement = {
 				tag: element.tag,
 				attributes: { ...element.attributes },
 				children: [],
@@ -88,16 +88,16 @@ const Termic = {
 			}
 
 			// Deep clone children
-			cloned.children = element.children.map(child => deepCloneTermElement(child, cloned))
+			cloned.children = element.children.map(child => deepClonePikoElement(child, cloned))
 
 			return cloned
 		}
 
-		// Convert the document to TermElement and flatten all elements
-		const rootElement = convertXMLToTermElement(document, 'term')
+		// Convert the document to PikoElement and flatten all elements
+		const rootElement = convertXMLToPikoElement(document, 'piko')
 
 		// find all imports and load them into a local cache
-		const getAllImports = (element: TermElement) => {
+		const getAllImports = (element: PikoElement) => {
 			const imports = element.children.filter((child) => child.tag === 'import' && !child.__imported)
 			element.children.forEach((item) => {
 				imports.push(...getAllImports(item))
@@ -114,19 +114,19 @@ const Termic = {
 				if (!key || typeof key !== "string") continue
 				const importPath = __fromOrigin ? path.resolve(path.dirname(__fromOrigin), from) : path.resolve(path.dirname(path.resolve(filePath)), from)
 				const importRaw = fs.readFileSync(importPath, 'utf-8')
-				const importDoc: ParsedTermFile = await parser.parseStringPromise(importRaw)
-				const loadedElement = convertXMLToTermElement(importDoc, 'term')
+				const importDoc: ParsedPikoFile = await parser.parseStringPromise(importRaw)
+				const loadedElement = convertXMLToPikoElement(importDoc, 'piko')
 				let content = loadedElement.children?.[0]?.children || []
 				const innerImports = getAllImports(loadedElement)
 				innerImports.forEach((i) => {
 					i.__fromOrigin = importPath
 				})
-				Termic.cache[key] = content
+				Pikic.cache[key] = content
 				_import.__imported = true
 			}
 		}
 
-		const getAllComponents = (element: TermElement) => {
+		const getAllComponents = (element: PikoElement) => {
 			const components = element.children.filter((child) => !ALL_ELEMENTS.includes(child.tag) && child.tag !== 'fragment')
 			element.children.forEach((item) => {
 				components.push(...getAllComponents(item))
@@ -135,10 +135,10 @@ const Termic = {
 		}
 
 		let components = getAllComponents(rootElement)
-		const prerenderComponents = (element: TermElement) => {
+		const prerenderComponents = (element: PikoElement) => {
 			if(!ALL_ELEMENTS.includes(element.tag) && element.tag !== 'fragment' && element.tag !== 'if') { // not a custom component
 				// custom component -- load from import cache
-				const importCache = Termic.cache[element.tag]
+				const importCache = Pikic.cache[element.tag]
 				if(!importCache) {
 					throw new Error(`Import ${element.tag} not found in cache`)
 				}
@@ -146,10 +146,10 @@ const Termic = {
 				if(!parent) return
 				const index = parent.children.indexOf(element)
 				if(index === -1) return
-				const fragment: TermElement = {
+				const fragment: PikoElement = {
 					tag: 'fragment',
 					attributes: {},
-					children: importCache.map((c) => deepCloneTermElement(c)),
+					children: importCache.map((c) => deepClonePikoElement(c)),
 					__props: { ...element.attributes }
 				}
 				parent.children.splice(index, 1, fragment)
@@ -164,7 +164,7 @@ const Termic = {
 			}
 		}
 
-		const evaluateExpression = (expression: string, fragment: TermElement | null) => {
+		const evaluateExpression = (expression: string, fragment: PikoElement | null) => {
 			// Handle interpolated strings with ${variable} patterns
 			let result = expression
 			if(result.includes('${')) {
@@ -209,7 +209,7 @@ const Termic = {
 		}
 
 		// render lists
-		const getAllLists = (element: TermElement) => {
+		const getAllLists = (element: PikoElement) => {
 			if(element.children.length === 0) return []
 			const lists = element.children.filter((child) => child.tag === 'list')
 			element.children.forEach((item) => {
@@ -219,7 +219,7 @@ const Termic = {
 		}
 
 		let lists = getAllLists(rootElement)
-		const expandList = (list: TermElement) => {
+		const expandList = (list: PikoElement) => {
 			const parent = list.parent
 			if(!parent) return
 			
@@ -233,7 +233,7 @@ const Termic = {
 				// Create expanded children for each data item
 				const expandedChildren = data.flatMap((listItem, i) => {
 					return list.children.map(child => {
-						const clonedChild = deepCloneTermElement(child)
+						const clonedChild = deepClonePikoElement(child)
 						clonedChild.__listItem = { ...listItem }
 						clonedChild.__listIndex = i
 						return clonedChild
@@ -283,7 +283,7 @@ const Termic = {
 		}
 
 		// 3. fill all basic elements
-		const fillAllElements = (element: TermElement) => {
+		const fillAllElements = (element: PikoElement) => {
 			// Fill attributes for basic elements
 			if (ALL_BASIC_ELEMENTS.includes(element.tag)) {
 				element.attributes = Object.fromEntries(
@@ -304,7 +304,7 @@ const Termic = {
 		fillAllElements(rootElement)
 
 		// 4. fill all props and list items
-		const fillProps = (element: TermElement, currentFragment: TermElement | null) => {
+		const fillProps = (element: PikoElement, currentFragment: PikoElement | null) => {
 			if(element.tag === "fragment") {
 				if(element.__listItem && element.__props) {
 					element.__props = Object.fromEntries(
@@ -336,7 +336,7 @@ const Termic = {
 		fillProps(rootElement, null)
 
 		// 5. handle conditionals
-		const handleConditionals = (element: TermElement) => {
+		const handleConditionals = (element: PikoElement) => {
 			if(element.tag === "if" && element.attributes.condition) {
 				let condition = evaluateExpression(element.attributes.condition, element)
 				const interpreter = new Interpreter(`Boolean(${condition})`)
@@ -384,7 +384,7 @@ const Termic = {
 
 		return res.trim()
 	},
-	term: (componentTag: any, ...values: any[]) => {
+	piko: (componentTag: any, ...values: any[]) => {
 		let res = "";
 
 		let keys = Object.keys(values)
@@ -404,4 +404,4 @@ const Termic = {
 	}
 }
 
-export default Termic;
+export default Pikic;

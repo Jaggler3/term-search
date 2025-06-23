@@ -1,7 +1,7 @@
-export type ElementTag = "fragment" | "import" | "list" | "term" | "action" | "container" | "input" | "text" | "link" | "br" | "list" | "if"
+export type ElementTag = "fragment" | "import" | "list" | "piko" | "action" | "container" | "input" | "text" | "link" | "br" | "list" | "if"
 
-export interface ParsedTermFile {
-	term?: {
+export interface ParsedPikoFile {
+	piko?: {
 		$: any;
 		[key: string]: (XMLElement | string)[];
 	} | XMLElement[]
@@ -12,7 +12,7 @@ export interface XMLElement {
 	[key: string]: (XMLElement | string)[];
 }
 
-export interface TermElement {
+export interface PikoElement {
 	tag: ElementTag;
 	attributes: {
 		[key: string]: string;
@@ -21,8 +21,8 @@ export interface TermElement {
 		[key: string]: string;
 	};
 	__listItem?: any;
-	children: TermElement[];
-	parent?: TermElement;
+	children: PikoElement[];
+	parent?: PikoElement;
 	textContent?: string;
 	__expanded?: boolean;
 	__filled?: boolean;
@@ -31,6 +31,6 @@ export interface TermElement {
 	__listIndex?: number;
 }
 
-export interface TermicCache {
-	[key: string]: TermElement[]
+export interface PikicCache {
+	[key: string]: PikoElement[]
 } 

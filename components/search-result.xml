@@ -1,8 +1,8 @@
-<term type="m100_xml">
+<piko type="m100_xml">
   <import key="search-result-desc" from="./search-result-desc.xml" />
   <container padding-top="1" padding-bottom="1">
     <link foreground="cyan" style="bold" key="${@props.key}" url="${@props.url}">${@props.title}</link>
     <text style="underline" foreground="magenta">${@props.prettyUrl}</text>
     <search-result-desc description="${@props.description}" />
   </container>
-</term>
+</piko>
