@@ -28,6 +28,7 @@ const server = Bun.serve({
 				search: searchQuery,
 				time: (totalTime / 1000).toFixed(3),
 				resultLength: results.length,
+				unitName: results.length === 1 ? "result" : "results",
 				results: results.map(result => ({
 					...result,
 					prettyUrl: result.url.replace(/^https?:\/\//, "").replace(/\/$/, "")

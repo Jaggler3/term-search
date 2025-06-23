@@ -6,7 +6,7 @@
     <container width="60pc">
       <input icon="\u2315" width="100pc" initial="${search}" submit="search" autofocus="no" />
       <if condition="(${resultLength} > 0)">
-        <text foreground="green" padding-top="1">${resultLength} results found for '${search}' in ${time} seconds</text>
+        <text foreground="green" padding-top="1">${resultLength} ${unitName} found for '${search}' in ${time} seconds</text>
       </if>
       <list items="results">
         <search-result
